@@ -1,0 +1,58 @@
+# a very minimal declarative config file
+_format_version: "2.1"
+_transform: true
+
+
+services:
+  # Serviço de Finalização de Pedido
+    - name: finalizacao-pedido-service
+      url: http://finalizacao-pedido-svc:8080
+      routes:
+          - name: finalizacao-pedido-route
+            paths:
+                - /
+                - /health
+            methods:
+                - GET
+                - POST
+            strip_path: true
+
+  # Admin API do Kong (opcional - apenas se quiser expor via Kong)
+    - name: kong-admin-service
+      url: http://kong:8001
+      routes:
+          - name: kong-admin-route
+            paths:
+                - /admin-api
+            methods:
+                - GET
+                - POST
+                - PUT
+                - DELETE
+
+  # Jaeger UI
+    - name: jaeger-ui-service
+      url: http://jaeger:16686
+      routes:
+          - name: jaeger-ui-route
+            paths:
+                - /jaeger
+            strip_path: true
+
+  # Kibana
+    - name: kibana-service
+      url: http://kibana:5601
+      routes:
+          - name: kibana-route
+            paths:
+                - /kibana
+            strip_path: true
+
+# Plugins globais (exemplo básico)
+plugins:
+    - name: cors
+      config:
+          origins: ["*"]
+          methods: ["GET", "POST", "PUT", "DELETE"]
+          headers: ["Accept", "Content-Type"]
+          credentials: true

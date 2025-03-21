@@ -1,0 +1,234 @@
+services:
+    # API Gateway Kong
+    kong-db:
+        image: postgres:16-alpine
+        networks:
+            - backend-net
+        environment:
+            POSTGRES_DB: kong
+            POSTGRES_USER: kong
+            POSTGRES_PASSWORD: kong
+        ports:
+            - "5432:5432"
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U kong -d kong"]
+            interval: 5s
+            timeout: 5s
+            retries: 30
+        volumes:
+            - kong-postgres-data:/var/lib/postgresql/data
+
+    kong-migrations:
+        hostname: kong-migrations
+        container_name: kong-migrations
+        image: kong:3.9
+        networks:
+            - backend-net
+        environment:
+            KONG_DATABASE: postgres
+            KONG_PG_HOST: kong-db
+            KONG_PG_USER: kong
+            KONG_PG_PASSWORD: kong
+        command: >
+          sh -c "kong migrations bootstrap &&
+                 kong migrations up &&
+                 kong migrations finish"
+        depends_on:
+            kong-db:
+                condition: service_healthy
+
+    kong:
+        hostname: kong
+        container_name: kong
+        image: kong:3.9
+        networks:
+            - backend-net
+            - monitoring
+        environment:
+            KONG_DATABASE: ${KONG_DATABASE}
+            KONG_PG_HOST: ${KONG_PG_HOST}
+            KONG_PG_USER: ${KONG_PG_USER}
+            KONG_NGINX_USER: ${KONG_NGINX_USER}
+#            KONG_NGINX_DAEMON: ${KONG_NGINX_DAEMON}
+            KONG_PG_PASSWORD: ${KONG_PG_PASSWORD}
+            KONG_PROXY_LISTEN: ${KONG_PROXY_LISTEN}
+            KONG_ADMIN_LISTEN: ${KONG_ADMIN_LISTEN}
+#            KONG_ADMIN_GUI_LISTEN: ${KONG_ADMIN_GUI_LISTEN}
+            KONG_PROXY_ACCESS_LOG: /dev/stdout
+            KONG_ADMIN_ACCESS_LOG: /dev/stdout
+            KONG_PROXY_ERROR_LOG: /dev/stderr
+            KONG_ADMIN_ERROR_LOG: /dev/stderr
+            KONG_DECLARATIVE_CONFIG: /opt/kong/kong.yaml
+        ports:
+            - "8000:8000"
+            - "8443:8443"
+            - "8001:8001"
+            - "8002:8002" # UI
+            - "8444:8444"
+        volumes:
+            - ../backend-selfcamp/api-gtw/config:/opt/kong
+        depends_on:
+            kong-db:
+                condition: service_started
+            kong-migrations:
+                condition: service_completed_successfully
+        healthcheck:
+            test: ["CMD", "kong", "health"]
+            interval: 10s
+            timeout: 10s
+            retries: 30
+
+    finalizacao-pedido-svc:
+        hostname: finalizacao-pedido-svc
+        container_name: finalizacao-pedido-svc
+        build:
+            context: ./finalizacao-pedido-svc
+            dockerfile: Dockerfile
+        ports:
+            - "8080:8080"
+        networks:
+            - monitoring
+            - backend-net
+        env_file:
+            - .env
+        volumes:
+            - .env:/app/.env  # Bind mount
+            - service-logs:/logs
+        environment:
+            - OTEL_SERVICE_NAME=${OPEN_TELEMETRY_NAME}
+            - OTEL_TRACES_EXPORTER=otlp
+            - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
+            - OTEL_PROPAGATORS=tracecontext,baggage,b3
+        depends_on:
+            - kong
+            - otel-collector
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+            interval: 15s
+            timeout: 10s
+            retries: 30
+            start_period: 30s
+
+    otel-collector:
+        hostname: otel-collector
+        container_name: otel-collector
+        image: otel/opentelemetry-collector-contrib:0.121.0
+        command: --config /etc/otel-collector-config.yaml
+        volumes:
+            - ../backend-selfcamp/open-telemetry/otel-collector-config.yaml:/etc/otel-collector-config.yaml  # Bind mount
+        ports:
+            - 4317:4317
+            - 4318:4318
+            - 8889:8889
+        networks:
+            monitoring:
+                aliases: [spm_metrics_source]
+        env_file:
+            - .env
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:4318/metrics"]
+            interval: 15s
+            timeout: 15s
+            retries: 30
+            start_period: 10s
+        depends_on:
+            - jaeger
+            - prometheus
+
+    prometheus:
+        hostname: prometheus
+        container_name: prometheus
+        image: prom/prometheus:v3.2.1
+        volumes:
+            - ../backend-selfcamp/prometheus/prometheus.yaml:/etc/prometheus/prometheus.yml  # Bind mount
+        networks:
+            - monitoring
+        env_file:
+            - .env
+        ports:
+            - 9090:9090
+
+    jaeger:
+        hostname: jaeger
+        image: jaegertracing/jaeger:2.4.0
+        command: --config /etc/jaeger/config.yml
+        ports:
+            - "16686:16686"
+            - "14250:14250"
+        volumes:
+            - ../backend-selfcamp/open-telemetry/jaeger-ui.json:/etc/jaeger/jaeger-ui.json  # Bind mount
+            - ../backend-selfcamp/open-telemetry/config-spm.yaml:/etc/jaeger/config.yml  # Bind mount
+        networks:
+            - monitoring
+        env_file:
+            - .env
+        environment:
+            - PROMETHEUS_SERVER_URL=${PROMETHEUS_SERVER_URL}
+            - PROMETHEUS_QUERY_SUPPORT_SPANMETRICS_CONNECTOR=true
+            - METRICS_STORAGE_TYPE=${METRICS_STORAGE_TYPE}
+            - SPAN_STORAGE_TYPE=elasticsearch
+            - ES_SERVER_URLS=http://elasticsearch:9200
+            - PROMETHEUS_QUERY_NAMESPACE=backend-selfcamp
+            - PROMETHEUS_QUERY_NORMALIZE_CALLS=true
+            - PROMETHEUS_QUERY_NORMALIZE_DURATION=true
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:16686"]
+            interval: 15s
+            timeout: 5s
+            retries: 20
+            start_period: 30s
+
+    elasticsearch:
+        image: docker.elastic.co/elasticsearch/elasticsearch:8.17.3
+        networks:
+            - monitoring
+        environment:
+            - discovery.type=single-node
+            - ES_JAVA_OPTS=-Xms512m -Xmx512m
+            - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+            - xpack.security.enabled=false
+            - xpack.security.transport.ssl.enabled=false
+            - xpack.security.authc.api_key.enabled=false
+#            - xpack.security.http.ssl.key=/usr/share/elasticsearch/config/certs/elasticsearch.key
+#            - xpack.security.http.ssl.certificate=/usr/share/elasticsearch/config/certs/elasticsearch.crt
+#            - xpack.security.http.ssl.certificate_authorities=/usr/share/elasticsearch/config/certs/ca/ca.crt
+        ports:
+            - "9200:9200"
+        volumes:
+            - elasticsearch-data:/usr/share/elasticsearch/data
+            - elasticsearch-certs:/usr/share/elasticsearch/config/certs
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:9200", "-u", "gian:12345678"]
+            interval: 30s
+            timeout: 10s
+            retries: 15
+
+    kibana:
+        image: docker.elastic.co/kibana/kibana:8.17.3
+        networks:
+            - monitoring
+        environment:
+            - ELASTICSEARCH_SSL_VERIFICATIONMODE=none
+            - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+            - ELASTICSEARCH_USERNAME=${ELASTIC_USERNAME}
+            - ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD}
+#            - ELASTICSEARCH_SSL_CERTIFICATEAUTHORITIES=/usr/share/kibana/config/certs/ca/ca.crt
+        volumes:
+            - elasticsearch-certs:/usr/share/kibana/config/certs
+        ports:
+            - "5601:5601"
+        depends_on:
+            elasticsearch:
+                condition: service_healthy
+
+networks:
+    backend-net:
+        driver: bridge
+    monitoring:
+        driver: bridge
+
+volumes:
+    kong-postgres-data:
+    elasticsearch-data:
+    elasticsearch-certs:
+    service-logs:

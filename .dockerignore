@@ -1,0 +1,9 @@
+.git
+../.gitignore
+docker/Dockerfile
+finalizacao-pedido-svc/.dockerignore
+**/*.md
+**/*_test.go
+vendor/
+tests/
+tmp/
