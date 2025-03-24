@@ -23,6 +23,6 @@ for SERVICE in $SERVICES; do
 done
 
 # Caso nenhum container precisou ser iniciado
-if [[ "$CONTAINER_SUBIDO" = false ]]; then
+if [[ "$IS_RUNNING" = false ]]; then
     echo "🎉 Todos os serviços já estão rodando!"
 fi

@@ -1,0 +1,50 @@
+### Criar Serviço no Kong
+POST http://localhost:8001/services
+Content-Type: application/json
+
+{
+    "name": "finalizacao-pedido-svc",
+    "url": "http://finalizacao-pedido-svc:8080"
+}
+
+### Criar Rota /health
+POST http://localhost:8001/services/finalizacao-pedido-svc/routes
+Content-Type: application/json
+
+{
+    "name": "health-route",
+    "paths": ["/health"],
+    "strip_path": false
+}
+
+### Criar Rota /
+POST http://localhost:8001/services/finalizacao-pedido-svc/routes
+Content-Type: application/json
+
+{
+    "name": "root-route",
+    "paths": ["/"],
+    "strip_path": false
+}
+
+### Adicionar Plugin de Rate Limiting
+POST http://localhost:8001/services/finalizacao-pedido-svc/plugins
+Content-Type: application/json
+
+{
+    "name": "rate-limiting",
+    "config": {
+        "minute": 20
+    }
+}
+
+### Adicionar Plugin de Proxy-Cache
+POST http://localhost:8001/services/finalizacao-pedido-svc/plugins
+Content-Type: application/json
+
+{
+    "name": "proxy-cache",
+    "config": {
+        "cache_ttl": 60 //tempo de vida do cache em segundos
+    }
+}

@@ -104,8 +104,12 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 
 func helloHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
 	response := map[string]string{
-		"status": "hello world!",
+		"greeting": "hello world!",
 	}
 	json.NewEncoder(w).Encode(response)
 }

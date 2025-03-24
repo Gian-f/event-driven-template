@@ -49,11 +49,11 @@ services:
             KONG_PG_HOST: ${KONG_PG_HOST}
             KONG_PG_USER: ${KONG_PG_USER}
             KONG_NGINX_USER: ${KONG_NGINX_USER}
-#            KONG_NGINX_DAEMON: ${KONG_NGINX_DAEMON}
+            #            KONG_NGINX_DAEMON: ${KONG_NGINX_DAEMON}
             KONG_PG_PASSWORD: ${KONG_PG_PASSWORD}
             KONG_PROXY_LISTEN: ${KONG_PROXY_LISTEN}
             KONG_ADMIN_LISTEN: ${KONG_ADMIN_LISTEN}
-#            KONG_ADMIN_GUI_LISTEN: ${KONG_ADMIN_GUI_LISTEN}
+            #            KONG_ADMIN_GUI_LISTEN: ${KONG_ADMIN_GUI_LISTEN}
             KONG_PROXY_ACCESS_LOG: /dev/stdout
             KONG_ADMIN_ACCESS_LOG: /dev/stdout
             KONG_PROXY_ERROR_LOG: /dev/stderr
@@ -115,7 +115,7 @@ services:
         image: otel/opentelemetry-collector-contrib:0.121.0
         command: --config /etc/otel-collector-config.yaml
         volumes:
-            - ../backend-selfcamp/open-telemetry/otel-collector-config.yaml:/etc/otel-collector-config.yaml  # Bind mount
+            - ../backend-selfcamp/open-telemetry/otel-collector-config.yaml:/etc/otel-collector-config.yaml
         ports:
             - 4317:4317
             - 4318:4318
@@ -140,7 +140,7 @@ services:
         container_name: prometheus
         image: prom/prometheus:v3.2.1
         volumes:
-            - ../backend-selfcamp/prometheus/prometheus.yaml:/etc/prometheus/prometheus.yml  # Bind mount
+            - ../backend-selfcamp/prometheus/prometheus.yaml:/etc/prometheus/prometheus.yml
         networks:
             - monitoring
         env_file:
@@ -156,8 +156,8 @@ services:
             - "16686:16686"
             - "14250:14250"
         volumes:
-            - ../backend-selfcamp/open-telemetry/jaeger-ui.json:/etc/jaeger/jaeger-ui.json  # Bind mount
-            - ../backend-selfcamp/open-telemetry/config-spm.yaml:/etc/jaeger/config.yml  # Bind mount
+            - ../backend-selfcamp/open-telemetry/jaeger-ui.json:/etc/jaeger/jaeger-ui.json
+            - ../backend-selfcamp/open-telemetry/config-spm.yaml:/etc/jaeger/config.yml
         networks:
             - monitoring
         env_file:
@@ -178,48 +178,48 @@ services:
             retries: 20
             start_period: 30s
 
-    elasticsearch:
-        image: docker.elastic.co/elasticsearch/elasticsearch:8.17.3
-        networks:
-            - monitoring
-        environment:
-            - discovery.type=single-node
-            - ES_JAVA_OPTS=-Xms512m -Xmx512m
-            - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
-            - xpack.security.enabled=false
-            - xpack.security.transport.ssl.enabled=false
-            - xpack.security.authc.api_key.enabled=false
-#            - xpack.security.http.ssl.key=/usr/share/elasticsearch/config/certs/elasticsearch.key
-#            - xpack.security.http.ssl.certificate=/usr/share/elasticsearch/config/certs/elasticsearch.crt
-#            - xpack.security.http.ssl.certificate_authorities=/usr/share/elasticsearch/config/certs/ca/ca.crt
-        ports:
-            - "9200:9200"
-        volumes:
-            - elasticsearch-data:/usr/share/elasticsearch/data
-            - elasticsearch-certs:/usr/share/elasticsearch/config/certs
-        healthcheck:
-            test: ["CMD", "curl", "-f", "http://localhost:9200", "-u", "gian:12345678"]
-            interval: 30s
-            timeout: 10s
-            retries: 15
-
-    kibana:
-        image: docker.elastic.co/kibana/kibana:8.17.3
-        networks:
-            - monitoring
-        environment:
-            - ELASTICSEARCH_SSL_VERIFICATIONMODE=none
-            - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
-            - ELASTICSEARCH_USERNAME=${ELASTIC_USERNAME}
-            - ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD}
-#            - ELASTICSEARCH_SSL_CERTIFICATEAUTHORITIES=/usr/share/kibana/config/certs/ca/ca.crt
-        volumes:
-            - elasticsearch-certs:/usr/share/kibana/config/certs
-        ports:
-            - "5601:5601"
-        depends_on:
-            elasticsearch:
-                condition: service_healthy
+#    elasticsearch:
+#        image: docker.elastic.co/elasticsearch/elasticsearch:8.17.3
+#        networks:
+#            - monitoring
+#        environment:
+#            - discovery.type=single-node
+#            - ES_JAVA_OPTS=-Xms512m -Xmx512m
+#            - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+#            - xpack.security.enabled=false
+#            - xpack.security.transport.ssl.enabled=false
+#            - xpack.security.authc.api_key.enabled=false
+##            - xpack.security.http.ssl.key=/usr/share/elasticsearch/config/certs/elasticsearch.key
+##            - xpack.security.http.ssl.certificate=/usr/share/elasticsearch/config/certs/elasticsearch.crt
+##            - xpack.security.http.ssl.certificate_authorities=/usr/share/elasticsearch/config/certs/ca/ca.crt
+#        ports:
+#            - "9200:9200"
+#        volumes:
+#            - elasticsearch-data:/usr/share/elasticsearch/data
+#            - elasticsearch-certs:/usr/share/elasticsearch/config/certs
+#        healthcheck:
+#            test: ["CMD", "curl", "-f", "http://localhost:9200", "-u", "gian:12345678"]
+#            interval: 30s
+#            timeout: 10s
+#            retries: 15
+#
+#    kibana:
+#        image: docker.elastic.co/kibana/kibana:8.17.3
+#        networks:
+#            - monitoring
+#        environment:
+#            - ELASTICSEARCH_SSL_VERIFICATIONMODE=none
+#            - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+#            - ELASTICSEARCH_USERNAME=${ELASTIC_USERNAME}
+#            - ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD}
+##            - ELASTICSEARCH_SSL_CERTIFICATEAUTHORITIES=/usr/share/kibana/config/certs/ca/ca.crt
+#        volumes:
+#            - elasticsearch-certs:/usr/share/kibana/config/certs
+#        ports:
+#            - "5601:5601"
+#        depends_on:
+#            elasticsearch:
+#                condition: service_healthy
 
 networks:
     backend-net:

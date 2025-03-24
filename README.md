@@ -253,6 +253,79 @@ flowchart TD
     class H,I,J ui;
 ```
 
+# API Gateway com Kong
+
+## Criação de Serviço no Kong
+
+## Endpoint
+
+`POST http://localhost:8001/services`
+
+## Exemplo de requisição (JSON)
+
+```json
+{
+   "name": "finalizacao-pedido-svc",
+   "url": "http://finalizacao-pedido-svc:8080"
+}
+```
+
+## Criação de Rotas no Kong
+
+## Endpoint
+
+`POST http://localhost:8001/services/finalizacao-pedido-svc/routes`
+
+## Exemplo de requisição (JSON)
+
+### Rota `/health`
+
+```json
+{
+   "name": "health-route",
+   "paths": [
+      "/health"
+   ],
+   "strip_path": false
+}
+```
+
+# Configuração do Plugin de Rate Limiting no Kong
+
+## Endpoint
+
+`POST http://localhost:8001/services/finalizacao-pedido-svc/plugins`
+
+## Corpo da Requisição (JSON)
+
+```json
+{
+   "name": "rate-limiting",
+   "config": {
+      "minute": 20
+   }
+}
+```
+
+# Configuração do Plugin de Proxy-Cache no Kong
+
+## Endpoint
+
+`POST http://localhost:8001/services/finalizacao-pedido-svc/plugins`
+
+## Corpo da Requisição (JSON)
+
+### Cache_ttl representa o tempo de vida em segundos do cache
+
+```json
+{
+   "name": "proxy-cache",
+   "config": {
+      "cache_ttl": 60
+   }
+}
+```
+
 ### Explicação do Fluxo:
 
 1. **Usuário → Kong**: Requisições chegam pelo API Gateway.
